@@ -11,10 +11,26 @@ from zoneinfo import ZoneInfo
 # yfinance continuous futures tickers. Phase 1 only; swap for an explicit
 # front-month contract resolver (IBKR/Databento) before trusting the
 # archive long-term -- see README "Known limitations".
+#
+# Six tickers per idea #6's next action, five US-listed index/commodity
+# futures plus one non-US index future (NIY, Nikkei 225/Yen -- Japan) so
+# the archive isn't US-only. All six trade on CME Globex, so the existing
+# 18:00 ET overnight-session/9:30 ET cash-open definitions below apply,
+# though the cash-open time is only literally correct for the US-hours
+# products (ES/NQ/YM/RTY); treat ORB/overnight levels for GC and NIY as
+# directional until each product's own session hours are modeled.
 SYMBOLS = {
-    "ES": "ES=F",
-    "NQ": "NQ=F",
+    "ES": "ES=F",    # S&P 500 E-mini -- US
+    "NQ": "NQ=F",    # Nasdaq 100 E-mini -- US
+    "YM": "YM=F",    # Dow E-mini -- US
+    "RTY": "RTY=F",  # Russell 2000 E-mini -- US
+    "GC": "GC=F",    # Gold -- US
+    "NIY": "NIY=F",  # Nikkei 225 Yen futures -- Japan (non-US)
 }
+
+# Subset of SYMBOLS whose underlying market is outside the US, kept explicit
+# (rather than inferred from a comment) so it can be asserted in tests.
+NON_US_SYMBOLS = {"NIY"}
 
 # --- Timeframes to render ------------------------------------------------
 RENDER_INTERVALS = ["2min", "5min"]
