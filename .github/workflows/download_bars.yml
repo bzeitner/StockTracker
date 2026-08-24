@@ -1,0 +1,43 @@
+name: Scheduled bar download
+
+# Runs on US trading days, after the cash session close, to backfill the
+# last 7 days of 1-minute bars per ticker (idea #6 Phase 3: unattended
+# archive accumulation). Commits new/changed CSVs under archive/<TICKER>/
+# back to main so the archive persists across runs.
+on:
+  schedule:
+    # 22:15 UTC = 5:15 PM ET / 2:15 PM PT, Mon-Fri. Comfortably after the
+    # 4:00 PM ET cash close and before the 5:00-6:00 PM ET daily halt.
+    - cron: '15 22 * * 1-5'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download bars
+        run: python download_bars.py
+
+      - name: Commit archive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add archive
+          if git diff --cached --quiet; then
+            echo "No archive changes to commit"
+          else
+            git commit -m "Scheduled bar download: $(date -u +%Y-%m-%d)"
+            git push
+          fi

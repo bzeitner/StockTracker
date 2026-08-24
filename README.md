@@ -6,23 +6,27 @@ full session), 15/30-minute opening-range breakout levels, and volume,
 rendered on 2-minute and 5-minute charts. Built for
 [IdeaFlow idea #6](https://ideaflow.bitesoftheweek.com/6/).
 
-## Status: Phase 1 (data collection + rendering, yfinance prototype)
+## Status: Phase 3 (scheduled archive accumulation started)
 
-This is the first of a 3-phase plan (see IdeaFlow idea #6, research entry
+This is the third of a 3-phase plan (see IdeaFlow idea #6, research entry
 #5 for the full writeup):
 
-- **Phase 1 (this commit):** `daily_chart.py` pulls 1-minute bars via
-  yfinance for the six configured tickers (`config.SYMBOLS` -- ES, NQ, YM,
-  RTY, GC, and non-US NIY), resamples to 2m/5m, computes the levels below,
-  renders a PNG per symbol/interval, and appends a stats row to
+- **Phase 1 (done):** `daily_chart.py` pulls 1-minute bars via yfinance
+  for the six configured tickers (`config.SYMBOLS` -- ES, NQ, YM, RTY, GC,
+  and non-US NIY), resamples to 2m/5m, computes the levels below, renders
+  a PNG per symbol/interval, and appends a stats row to
   `archive/sessions.csv`. `download_bars.py` separately backfills the last
   7 days of 1-minute bars per ticker into `archive/<TICKER>/`.
 - **Phase 2 (not started):** swap the data layer to IBKR TWS or Databento
   (`GLBX.MDP3`) behind `fetch_bars()`, add explicit front-month contract
   resolution, handle DST via `zoneinfo`, add a market-calendar check for
   holidays/half-days.
-- **Phase 3 (not started):** `launchd`/cron automation at the configured
-  snapshot time, Discord/Slack/email delivery, run against both ES and NQ.
+- **Phase 3 (this commit):** `.github/workflows/download_bars.yml` runs
+  `download_bars.py` on a GitHub Actions schedule (weekdays, 22:15 UTC --
+  after the cash close) and commits any new `archive/<TICKER>/*.csv`
+  files back to `main`, so the archive accumulates unattended without
+  requiring a machine to be left running. Discord/Slack/email delivery of
+  `daily_chart.py`'s rendered snapshots is not yet wired up.
 
 ## Quickstart
 
@@ -42,7 +46,19 @@ python download_bars.py               # backfill last 7 days, all 6 tickers
 - `<TICKER>_1m_<fetched-date>.csv` — last 7 days of 1-minute bars, one
   folder per ticker (ES, NQ, YM, RTY, GC, NIY)
 
-`archive/` is gitignored; both scripts write local-only output.
+`archive/<TICKER>/` (ticker CSVs from `download_bars.py`) is committed by
+the scheduled workflow so it persists across runs. `archive/<date>/`
+(per-session output from `daily_chart.py`, dated dirs) stays gitignored
+and local-only.
+
+## Automation
+
+`.github/workflows/download_bars.yml` runs `download_bars.py` every
+weekday at 22:15 UTC (17:15 ET) via GitHub Actions and commits any new
+per-ticker CSVs back to `main`. Trigger it manually from the Actions tab
+(`workflow_dispatch`) to backfill immediately instead of waiting for the
+next scheduled run. No secrets or external accounts are required --
+yfinance access is anonymous.
 
 ## Level definitions
 
