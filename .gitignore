@@ -1,4 +1,10 @@
 .venv/
 __pycache__/
 *.pyc
-archive/
+
+# archive/<TICKER>/*.csv from download_bars.py is committed by the
+# scheduled workflow (.github/workflows/download_bars.yml) so the archive
+# persists across runs. Per-session output from daily_chart.py
+# (archive/<date>/, dated dirs) stays local-only.
+archive/*/
+!archive/[A-Z]*/
