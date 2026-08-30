@@ -21,6 +21,7 @@ import argparse
 import csv
 import datetime as dt
 import os
+from pathlib import Path
 
 import mplfinance as mpf
 import pandas as pd
@@ -77,6 +78,10 @@ def session_date_index(bars_1m: pd.DataFrame, session_date: dt.date) -> pd.Datet
     return bars_1m.loc[(bars_1m.index >= start) & (bars_1m.index < end)].index
 
 
+def _window(bars: pd.DataFrame, start: dt.datetime, end: dt.datetime) -> pd.DataFrame:
+    return bars.loc[(bars.index >= start) & (bars.index < end)]
+
+
 def compute_levels(bars_1m: pd.DataFrame, session_date: dt.date) -> dict:
     """Compute ONH/ONL, PDH/PDL (RTH + full session), and ORB15/30 for
     `session_date`, per the definitions locked in config.py / entry #5 §2.
@@ -92,16 +97,32 @@ def compute_levels(bars_1m: pd.DataFrame, session_date: dt.date) -> dict:
     overnight_end = cash_open
     overnight = session.loc[session.index < overnight_end]
 
+    prior_date = session_date - dt.timedelta(days=1)
+    while prior_date.weekday() >= 5:
+        prior_date -= dt.timedelta(days=1)
+    prior_session_start = dt.datetime.combine(
+        prior_date - dt.timedelta(days=1),
+        dt.time.fromisoformat(config.OVERNIGHT_START_ET),
+        tzinfo=config.TZ_ET,
+    )
+    prior_session_end = dt.datetime.combine(prior_date, dt.time(17), tzinfo=config.TZ_ET)
+    prior_rth_start = dt.datetime.combine(prior_date, dt.time(9, 30), tzinfo=config.TZ_ET)
+    prior_rth_end = dt.datetime.combine(prior_date, dt.time(16), tzinfo=config.TZ_ET)
+    prior_session = _window(bars_1m, prior_session_start, prior_session_end)
+    prior_rth = _window(bars_1m, prior_rth_start, prior_rth_end)
+    if prior_session.empty or prior_rth.empty:
+        raise RuntimeError(f"No prior-session bars found for {prior_date}")
+
     rth = session.loc[session.index >= cash_open]
 
     levels = {
         "session_date": session_date.isoformat(),
         "onh": overnight["High"].max() if not overnight.empty else None,
         "onl": overnight["Low"].min() if not overnight.empty else None,
-        "full_session_high": session["High"].max(),
-        "full_session_low": session["Low"].min(),
-        "rth_high": rth["High"].max() if not rth.empty else None,
-        "rth_low": rth["Low"].min() if not rth.empty else None,
+        "full_session_high": prior_session["High"].max(),
+        "full_session_low": prior_session["Low"].min(),
+        "rth_high": prior_rth["High"].max(),
+        "rth_low": prior_rth["Low"].min(),
     }
 
     for minutes in config.ORB_WINDOWS_MIN:
@@ -166,6 +187,32 @@ def write_bars_csv(bars: pd.DataFrame, symbol: str, session_date: dt.date):
     return out_path
 
 
+def read_archived_bars(symbol: str, archive_file: str | None = None) -> pd.DataFrame:
+    """Load a committed downloader snapshot and normalize its timestamp index."""
+    path = Path(archive_file) if archive_file else max(
+        Path(config.ARCHIVE_DIR, symbol).glob(f"{symbol}_1m_*.csv")
+    )
+    bars = pd.read_csv(path, index_col="Datetime", parse_dates=True)
+    bars.index = pd.DatetimeIndex(bars.index).tz_convert(config.TZ_ET)
+    return bars
+
+
+def generate_archived_charts(session_date: dt.date, output_dir: str) -> list[str]:
+    """Generate the four deterministic ES/NQ charts from committed snapshots."""
+    outputs = []
+    for symbol in ("ES", "NQ"):
+        bars_1m = read_archived_bars(symbol)
+        levels = compute_levels(bars_1m, session_date)
+        session_bars = bars_1m.loc[session_date_index(bars_1m, session_date)]
+        for rule in config.RENDER_INTERVALS:
+            out_path = os.path.join(output_dir, f"{symbol}_{rule}.png")
+            render_chart(resample(session_bars, rule), symbol, rule, levels, out_path)
+            outputs.append(out_path)
+            print(f"Wrote {out_path}")
+        print(f"{symbol} levels: {levels}")
+    return outputs
+
+
 def run(symbols: list[str], session_date: dt.date):
     for symbol in symbols:
         ticker = config.SYMBOLS[symbol]
@@ -195,6 +242,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date", type=str, default=None, help="Session date YYYY-MM-DD (default: today, PT)")
     parser.add_argument("--symbol", type=str, choices=list(config.SYMBOLS) + ["ALL"], default="ALL")
+    parser.add_argument("--from-archive", action="store_true", help="Generate ES/NQ charts from committed CSV snapshots")
+    parser.add_argument("--output-dir", default=None, help="Output directory for --from-archive")
     args = parser.parse_args()
 
     if args.date:
@@ -202,8 +251,14 @@ def main():
     else:
         session_date = dt.datetime.now(config.TZ_PT).date()
 
-    symbols = list(config.SYMBOLS) if args.symbol == "ALL" else [args.symbol]
-    run(symbols, session_date)
+    if args.from_archive:
+        output_dir = args.output_dir or os.path.join(
+            config.ARCHIVE_DIR, session_date.isoformat(), config.CHARTS_SUBDIR
+        )
+        generate_archived_charts(session_date, output_dir)
+    else:
+        symbols = list(config.SYMBOLS) if args.symbol == "ALL" else [args.symbol]
+        run(symbols, session_date)
 
 
 if __name__ == "__main__":
