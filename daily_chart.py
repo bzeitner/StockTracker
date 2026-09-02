@@ -82,9 +82,17 @@ def _window(bars: pd.DataFrame, start: dt.datetime, end: dt.datetime) -> pd.Data
     return bars.loc[(bars.index >= start) & (bars.index < end)]
 
 
-def compute_levels(bars_1m: pd.DataFrame, session_date: dt.date) -> dict:
+def compute_levels(
+    bars_1m: pd.DataFrame,
+    session_date: dt.date,
+    extra_orb_minutes: list[int] | None = None,
+) -> dict:
     """Compute ONH/ONL, PDH/PDL (RTH + full session), and ORB15/30 for
     `session_date`, per the definitions locked in config.py / entry #5 §2.
+
+    `extra_orb_minutes` adds ORB windows beyond `config.ORB_WINDOWS_MIN`
+    (idea #79: arbitrary, UI-selectable ORB length) without changing the
+    fixed 15/30-minute windows every existing caller relies on.
     """
     idx = session_date_index(bars_1m, session_date)
     session = bars_1m.loc[idx]
@@ -125,7 +133,7 @@ def compute_levels(bars_1m: pd.DataFrame, session_date: dt.date) -> dict:
         "rth_low": prior_rth["Low"].min(),
     }
 
-    for minutes in config.ORB_WINDOWS_MIN:
+    for minutes in list(config.ORB_WINDOWS_MIN) + list(extra_orb_minutes or []):
         window_end = cash_open + dt.timedelta(minutes=minutes)
         window = rth.loc[rth.index < window_end]
         levels[f"orb{minutes}_high"] = window["High"].max() if not window.empty else None
