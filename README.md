@@ -34,6 +34,7 @@ This is the third of a 3-phase plan (see IdeaFlow idea #6, research entry
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python daily_chart.py --date 2026-08-14 --symbol ES
+python daily_chart.py --from-archive --date 2026-08-28
 python download_bars.py               # backfill last 7 days, all 6 tickers
 ```
 
@@ -45,6 +46,21 @@ python download_bars.py               # backfill last 7 days, all 6 tickers
 `download_bars.py` output lands in `archive/<TICKER>/`:
 - `<TICKER>_1m_<fetched-date>.csv` — last 7 days of 1-minute bars, one
   folder per ticker (ES, NQ, YM, RTY, GC, NIY)
+
+The archive command uses the newest committed ES and NQ snapshots and writes
+exactly four reproducible charts (`ES_2min.png`, `ES_5min.png`, `NQ_2min.png`,
+and `NQ_5min.png`). It also prints the levels used. Prior-day levels use the
+previous trading day's 18:00–17:00 ET Globex session and 09:30–16:00 ET RTH;
+the charted session uses 18:00–17:00 ET, matching a TradingView chart set to
+New York time with extended hours enabled.
+
+Reference output for the completed 2026-08-28 session (generated from the
+committed `*_1m_2026-08-28.csv` snapshots):
+
+| Symbol | ONH | ONL | Prior RTH H/L | Prior Globex H/L | ORB15 H/L | ORB30 H/L |
+|---|---:|---:|---:|---:|---:|---:|
+| ES | 7755.00 | 7727.25 | 7755.50 / 7702.75 | 7755.50 / 7702.75 | 7757.50 / 7743.75 | 7758.00 / 7743.75 |
+| NQ | 29703.00 | 29578.25 | 29704.50 / 29423.75 | 29708.00 / 29401.75 | 29701.75 / 29562.75 | 29703.25 / 29562.75 |
 
 `archive/<TICKER>/` (ticker CSVs from `download_bars.py`) is committed by
 the scheduled workflow so it persists across runs. `archive/<date>/`
