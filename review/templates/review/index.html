@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Ticker Review</title>
+  <link rel="stylesheet" href="{% static 'review/style.css' %}">
+  <script src="https://unpkg.com/lightweight-charts@5.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Ticker Review</h1>
+    <div class="controls">
+      <label>Ticker
+        <select id="symbol">
+          {% for t in tickers %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Start <input type="date" id="start"></label>
+      <label>End <input type="date" id="end"></label>
+      <label>Interval
+        <select id="interval">
+          <option value="1">1 min</option>
+          <option value="2">2 min</option>
+          <option value="5" selected>5 min</option>
+        </select>
+      </label>
+      <label>ORB (min) <input type="number" id="orb" min="1" max="120" value="15"></label>
+      <button id="load">Load</button>
+      <span id="status"></span>
+    </div>
+    <div class="controls levels">
+      <label><input type="checkbox" data-level="onh" checked> ONH <input type="color" data-color="onh"></label>
+      <label><input type="checkbox" data-level="onl" checked> ONL <input type="color" data-color="onl"></label>
+      <label><input type="checkbox" data-level="rth_high" checked> PDH (RTH) <input type="color" data-color="rth_high"></label>
+      <label><input type="checkbox" data-level="rth_low" checked> PDL (RTH) <input type="color" data-color="rth_low"></label>
+      <label><input type="checkbox" data-level="full_session_high" checked> PDH (full) <input type="color" data-color="full_session_high"></label>
+      <label><input type="checkbox" data-level="full_session_low" checked> PDL (full) <input type="color" data-color="full_session_low"></label>
+      <label><input type="checkbox" data-level="orb_high" checked> ORB H <input type="color" data-color="orb_high"></label>
+      <label><input type="checkbox" data-level="orb_low" checked> ORB L <input type="color" data-color="orb_low"></label>
+    </div>
+  </header>
+  <main>
+    <div id="chart"></div>
+    <div id="volume"></div>
+  </main>
+  {{ ranges|json_script:"ranges-data" }}
+  <script src="{% static 'review/app.js' %}"></script>
+</body>
+</html>

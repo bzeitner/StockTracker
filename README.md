@@ -4,7 +4,11 @@ Daily session snapshot across six futures tickers (ES, NQ, YM, RTY, GC,
 and Nikkei 225/Yen NIY): overnight high/low, prior-day high/low (RTH and
 full session), 15/30-minute opening-range breakout levels, and volume,
 rendered on 2-minute and 5-minute charts. Built for
-[IdeaFlow idea #6](https://ideaflow.bitesoftheweek.com/6/).
+[IdeaFlow idea #6](https://ideaflow.bitesoftheweek.com/6/). Also includes
+a local Django viewer for interactively reviewing any tracked ticker's
+archived range at 1/2/5-minute resolution -- see
+[IdeaFlow idea #79](https://ideaflow.bitesoftheweek.com/79/) and
+"Interactive review viewer" below.
 
 ## Status: Phase 3 (scheduled archive accumulation started)
 
@@ -117,9 +121,38 @@ and ORB Levels" by nicholaslimwc) for the same session and confirm the
 levels agree. Not yet done as of this commit — see IdeaFlow idea #6 for
 the open item.
 
+## Interactive review viewer (idea #79)
+
+A local-only Django app for browsing the committed `archive/<TICKER>/`
+1-minute snapshots interactively: pick a ticker and a date range bounded
+by what's actually been collected, view candlesticks at 1/2/5-minute
+resolution with zoom/pan and a synced volume pane, and toggle prior-day
+(RTH and full-session), overnight, and opening-range-breakout price
+lines with a UI-configurable ORB length. Reuses `daily_chart.py`'s
+resampling and level calculations directly, so it can never disagree
+with the daily snapshot chart about what a level means. Line colors
+persist globally across tickers via `localStorage`.
+
+```bash
+pip install -r requirements.txt
+python manage.py runserver
+# open http://127.0.0.1:8000/
+```
+
+There is no database and no auth -- it only reads the committed archive
+CSVs already on disk. `review/services.py` bounds every request to the
+ticker's actually-collected date range and rejects unknown tickers,
+out-of-range dates, and unsupported intervals with a 400 response.
+
 ## Tests
 
 ```bash
-pip install pytest
+pip install -r requirements.txt
 python -m pytest tests/
 ```
+
+`tests/test_review.py` includes a regression check that the viewer's
+computed levels for the real, committed ES 2026-08-28 archive data match
+the reference table above exactly -- the automatable stand-in for the
+open manual TradingView comparison noted below, run against the same
+already-reviewed reference numbers rather than a live chart.
