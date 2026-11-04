@@ -23,7 +23,6 @@ import datetime as dt
 import os
 from pathlib import Path
 
-import mplfinance as mpf
 import pandas as pd
 import yfinance as yf
 
@@ -143,6 +142,8 @@ def compute_levels(
 
 
 def render_chart(bars: pd.DataFrame, symbol: str, interval_label: str, levels: dict, out_path: str):
+    import mplfinance as mpf
+
     hlines, colors, styles = [], [], []
     level_specs = [
         ("onh", "ONH", "tab:red", "--"),
