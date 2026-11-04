@@ -3,3 +3,5 @@ pandas>=2.0
 mplfinance>=0.12.10b0
 pandas_market_calendars>=4.4
 Django>=5.0
+# mplfinance imports six without declaring it; python-dateutil 4.0 stopped pulling it in.
+six
